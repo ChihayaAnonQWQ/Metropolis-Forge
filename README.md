@@ -5,7 +5,7 @@ Métropolis（[Minecraft Transit Railway](https://modrinth.com/mod/minecraft-tra
 
 - 上游项目：[DoveCotMC/Metropolis](https://github.com/DoveCotMC/Metropolis)
 - 移植自上游分支 `1.20.1-fabric-mtr4`（`mod_version = 0.7.1-beta`）
-- 本仓库：`ChihayaAnonQWQ/Metropolis`（上游的 fork），移植代码在 `1.20.1-forge` 分支
+- 本仓库：`ChihayaAnonQWQ/Metropolis`（上游的 fork），移植代码在 `Métropolis-Forge` 分支
 - 许可证：**MIT**（沿用上游）
 
 > 完整的移植说明、逐项对照表与踩坑记录见 **[移植说明.md](移植说明.md)**。
