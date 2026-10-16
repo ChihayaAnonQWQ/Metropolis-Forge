@@ -1,0 +1,18 @@
+# gradle
+.gradle/
+build/
+out/
+# dev runs
+run/
+runs/
+# maven publishing
+mcmodsrepo/
+# local MTR dependency (All Rights Reserved, not redistributed)
+libs/*.jar
+# IDE
+.idea/
+*.iml
+.vscode/
+.eclipse/
+.settings/
+bin/
