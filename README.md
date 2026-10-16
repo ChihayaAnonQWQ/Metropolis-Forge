@@ -34,7 +34,7 @@ cp /path/to/MTR-forge-1.20.1-3.6.3.jar libs/
 # 2. 用 JDK 17 构建
 export JAVA_HOME=/path/to/jdk-17
 ./gradlew build
-# 产物：build/libs/Metropolis-forge-1.20.1-0.7.1-beta-forge.jar
+# 产物：build/libs/Metropolis-forge-1.20.1-0.7.1-beta.2-forge.jar
 ```
 
 `libs/*.jar` 已在 `.gitignore` 中；`build.gradle` 用 `fileTree` 读取，文件名不必完全一致。
@@ -42,7 +42,7 @@ export JAVA_HOME=/path/to/jdk-17
 ## 安装
 
 1. 装好 Forge 1.20.1；
-2. 把 `Metropolis-forge-1.20.1-0.7.1-beta-forge.jar` 和你的 **MTR 3** 放进 `mods/`；
+2. 把 `Metropolis-forge-1.20.1-0.7.1-beta.2-forge.jar` 和你的 **MTR 3** 放进 `mods/`；
 3. 启动即可。`mods.toml` 里 MTR 是**可选依赖**，缺 MTR 时模组本体仍能加载，
    但「旧版内容」（闸机 / 售票机 / 安检门 / 半自动 PSD 等）不会注册。
 
@@ -54,10 +54,12 @@ export JAVA_HOME=/path/to/jdk-17
 - **网络**：Fabric 的任意通道改成单个 `SimpleChannel` 多路复用，语义与调用点保持原样。
 - **配置界面**：不再经 ModMenu，改用 Forge 自带的「Mod 列表 → Config」。
 - **数据生成（datagen）**：未移植（上游发布的 jar 同样不含 `data/`，行为一致）。
-- **列车联动屏蔽门**：上游靠 MTR 4 的 `RenderVehicleHelper#canOpenDoors`；MTR 3 无此结构，
-  本移植用 `MixinTrainDoorScan` 在 `mtr.data.Train#scanDoors` 上做了等价实现（含把门开度推给
-  `IBlockMTRPlatformDoor` / 半高门）。**推荐做法**仍是用 MTR 的**时间表传感器**输出红石信号
-  接到 `platform_door_controller_pillar`——既能到站开门，又能独立控制，且不依赖 Mixin 行为。
+- **列车到站自动开 / 关屏蔽门**：上游靠 MTR 4 的 `RenderVehicleHelper#canOpenDoors`；MTR 3 没有这个类，
+  而且它自己的 `Train#scanDoors`（唯一会驱动其 PSD 方块的地方）**对停站中的列车并不执行**。
+  因此本移植把驱动点放在 `TrainServer#handlePositions`（服务端每 tick 计算车位处），
+  用与 MTR 相同的扫描几何驱动 Metropolis 的门（`MixinTrainServerPositions` + `MtrPlatformUtil`）。
+  关门时只关「本列车开过的那几个门」，所以玩家用控制器/红石独立开的门不会被列车动。
+  性能上：门关着时是 O(1) 早退、不扫描；只有门开度 > 0 的那几秒才有扫描开销。
 - 移除了 3 个仅对 MTR 4 有意义的 Mixin（`AccessorMTRMain`、`AccessorMTRInit`、
   `MixinRenderVehicleHelper`，最后一个已按 MTR 3 重写为上述 `MixinTrainDoorScan`）。
 
@@ -69,7 +71,8 @@ export JAVA_HOME=/path/to/jdk-17
 2. 在门排旁边立 **`platform_door_controller_pillar`**（控制器立柱）。
 3. 右键控制器立柱，或给它红石信号（拉杆 / 红石粉 / 中继器 / 红石块贴近**控制器**，不是贴门），
    同一排的门会一起开合。
-4. 想「列车到站自动开门」：用 MTR 的**时间表传感器**输出红石接到控制器。
+4. 「列车到站自动开门」本移植已内置（到站自动开、发车自动关）。若你希望完全走原版红石逻辑，
+   也可以用 MTR 的**时间表传感器**输出红石接到控制器。
 
 站台地面**不必**是 `platform_a`（本移植已放宽）。
 
@@ -94,5 +97,5 @@ to **Minecraft 1.20.1 / Forge 47.4.10**, targeting the **MTR 3 API (package `mtr
 - Requires JDK 17 to build; drop your own MTR 3 jar into `libs/` (not redistributed here).
 - Fixes included: platform door controller redstone detection, controller no longer requires
   `platform_a` flooring, server-authoritative controller ticker, MTR 3 networking and client event
-  rewrites, and a `Train#scanDoors` mixin for train-driven platform doors.
+  rewrites, and train-driven platform doors (open on arrival, close on departure).
 - Licensed MIT, same as upstream.

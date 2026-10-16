@@ -1,6 +1,7 @@
 package team.dovecotmc.old.metropolis.mixins;
 
 import mtr.data.RailwayData;
+import team.dovecotmc.metropolis.Metropolis;
 import mtr.data.Train;
 import net.minecraft.core.BlockPos;
 import net.minecraft.world.level.Level;
@@ -38,12 +39,29 @@ public abstract class MixinTrainDoorScan {
     @Unique
     private boolean metropolis$platformFound;
 
+    @Unique
+    private int metropolis$scanned;
+
+    @Unique
+    private int metropolis$driven;
+
+    @Unique
+    private String metropolis$hit;
+
+    /** Throttles the per-scan summary line to one entry every few seconds. */
+    @Unique
+    private static long metropolis$lastSummary;
+
+
     // scanDoors returns boolean, so every callback must use CallbackInfoReturnable (even at HEAD).
     @Inject(method = "scanDoors", at = @At("HEAD"), remap = false)
     private void metropolis$beginScan(Level level, double x, double y, double z, float f1, float f2, double width, int carIndex, CallbackInfoReturnable<Boolean> cir) {
         this.metropolis$level = level;
         this.metropolis$doorValue = ((Train) (Object) this).getDoorValue();
         this.metropolis$platformFound = false;
+        this.metropolis$scanned = 0;
+        this.metropolis$driven = 0;
+        this.metropolis$hit = null;
     }
 
     /**
@@ -57,10 +75,17 @@ public abstract class MixinTrainDoorScan {
         final BlockPos pos = RailwayData.newBlockPos(x, y, z);
         final Level level = this.metropolis$level;
         if (level != null) {
+            this.metropolis$scanned++;
             final Block block = level.getBlockState(pos).getBlock();
             if (MtrPlatformUtil.isMetropolisPlatformPart(block)) {
                 this.metropolis$platformFound = true;
-                MtrPlatformUtil.driveDoor(level, pos, this.metropolis$doorValue);
+                if (this.metropolis$hit == null) {
+                    this.metropolis$hit = pos.toShortString() + " "
+                            + net.minecraft.core.registries.BuiltInRegistries.BLOCK.getKey(block);
+                }
+                if (MtrPlatformUtil.driveDoor(level, pos, this.metropolis$doorValue)) {
+                    this.metropolis$driven++;
+                }
             }
         }
         return pos;
@@ -68,6 +93,14 @@ public abstract class MixinTrainDoorScan {
 
     @Inject(method = "scanDoors", at = @At("TAIL"), cancellable = true, remap = false)
     private void metropolis$reportPlatform(Level level, double x, double y, double z, float f1, float f2, double width, int carIndex, CallbackInfoReturnable<Boolean> cir) {
+        final long now = System.currentTimeMillis();
+        if (now - metropolis$lastSummary > 5000L) {
+            metropolis$lastSummary = now;
+            Metropolis.LOGGER.info("[platform-door] train scan side={} car={} near {},{},{} doorValue={} scanned={} metropolisHit={} driven={}",
+                    level.isClientSide() ? "client" : "server", carIndex, (int) x, (int) y, (int) z,
+                    this.metropolis$doorValue, this.metropolis$scanned, this.metropolis$hit, this.metropolis$driven);
+        }
+
         if (!cir.getReturnValueZ() && this.metropolis$platformFound) {
             cir.setReturnValue(true);
         }
